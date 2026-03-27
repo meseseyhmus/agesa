@@ -8,14 +8,10 @@ import {
   ArrowRight,
   ArrowLeft,
   CheckCircle,
-  Lightbulb,
   AlertTriangle,
-  BookOpen,
+  Lightbulb,
   Sparkles,
-  Tag,
-  Clock,
   Lock,
-  Star,
 } from 'lucide-react';
 
 const MODULE_ICONS: Record<string, string> = {
@@ -203,75 +199,18 @@ export function Level1Page() {
         <AnimatePresence mode="wait">
           <motion.div key={currentModuleIdx} initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }}>
 
-            {/* Main article card */}
-            <MatrixCard className="p-0 mb-4 overflow-hidden">
-              {/* Card header */}
-              <div className="bg-[#001400] border-b border-[#00FF41]/20 px-5 py-3 flex items-center gap-3">
-                <span className="text-2xl">{module.icon}</span>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[#00FF41]/50 font-mono text-[10px]">[{module.module_id}]</span>
-                    <span className="text-[#00FF41]/50 font-mono text-[10px]">{module.module_title}</span>
-                  </div>
-                  <h2 className="text-base font-bold text-white font-mono">{module.title}</h2>
-                </div>
-                <div className="ml-auto flex items-center gap-3">
-                  <span className="flex items-center gap-1 text-[10px] text-gray-600 font-mono">
-                    <Clock className="w-3 h-3" /> {module.estimated_time_min} dk
-                  </span>
-                  {isCompleted && <CheckCircle className="w-4 h-4 text-[#00FF41]" />}
-                </div>
-              </div>
-
-              {/* Body text */}
-              <div className="p-5">
-                <div className="space-y-4 mb-5">
-                  {module.body_text.split('\n\n').map((para, i) => (
-                    <p key={i} className={`text-sm leading-relaxed font-mono ${i === 0 ? 'text-gray-200' : 'text-gray-400'}`}>{para}</p>
-                  ))}
-                </div>
-
-                {/* Key tip box */}
-                <div className="bg-[#00FF41]/5 border-l-2 border-[#00FF41] pl-4 py-3">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Star className="w-3.5 h-3.5 text-[#00FF41]" />
-                    <span className="text-[#00FF41] font-mono text-xs font-bold">ANAHTAR FIKIR</span>
-                  </div>
-                  <p className="text-[#00FF41]/80 text-xs font-mono">
-                    {module.module_id === 'M1' && 'Önce zorunlu → sonra birikim → kalanla keyfi harcama.'}
-                    {module.module_id === 'M2' && 'Günlük 60 TL = Yılda 21.900 TL = 10 yılda 219.000 TL.'}
-                    {module.module_id === 'M3' && 'Otomatik birikim > "canım isterse biriktiririm" prensibi.'}
-                    {module.module_id === 'M4' && 'Getiri > Enflasyon olmalı, aksi hâlde para eriyalır.'}
-                    {module.module_id === 'M5' && 'BES devlet katkısı %30 + zaman etkisi = güçlü birikim.'}
-                  </p>
-                </div>
-
-                {/* Tags */}
-                <div className="flex gap-1.5 flex-wrap mt-4">
-                  {module.tags.map(tag => (
-                    <span key={tag} className="flex items-center gap-1 text-[9px] font-mono bg-[#00FF41]/5 border border-[#00FF41]/20 text-[#00FF41]/60 px-2 py-0.5 rounded">
-                      <Tag className="w-2 h-2" />#{tag}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Rewards strip */}
-              <div className="bg-[#050E05] border-t border-[#00FF41]/10 px-5 py-2 flex items-center gap-4">
-                <BookOpen className="w-3.5 h-3.5 text-[#00FF41]/40" />
-                <span className="text-[#00FF41]/40 font-mono text-[10px]">Bu modülü tamamla:</span>
-                <span className="text-[#00FF41] font-mono text-[10px] font-bold">+{module.xpReward} XP</span>
-                <span className="text-yellow-400 font-mono text-[10px] font-bold">+{module.coinReward} 🪙</span>
-              </div>
-            </MatrixCard>
-
             {/* Quiz */}
-            <MatrixCard className="p-5 mb-4">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-1.5 h-4 bg-[#00FF41] rounded-full" />
-                <h3 className="text-sm font-bold text-[#00FF41] font-mono">HIZLI QUIZ</h3>
+            <MatrixCard className="p-6 mb-4">
+              {/* Module mini-label */}
+              <div className="flex items-center gap-2 mb-5">
+                <span className="text-xl">{module.icon}</span>
+                <span className="text-[#00FF41]/50 font-mono text-xs">[{module.module_id}] {module.module_title}</span>
+                <div className="ml-auto flex gap-2">
+                  <span className="text-[#00FF41]/40 font-mono text-[10px]">+{module.xpReward} XP</span>
+                  <span className="text-yellow-400/60 font-mono text-[10px]">+{module.coinReward} 🪙</span>
+                </div>
               </div>
-              <p className="text-white text-sm font-mono mb-3">{quiz.question}</p>
+              <p className="text-white text-base font-mono mb-4 leading-relaxed">{quiz.question}</p>
               <div className="grid grid-cols-1 gap-2">
                 {quiz.options.map(opt => {
                   const isCorrect = opt === quiz.correct;
