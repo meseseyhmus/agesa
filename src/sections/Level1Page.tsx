@@ -29,9 +29,27 @@ export function Level1Page() {
   const [showTraps, setShowTraps] = useState(false);
   const [completedModules, setCompletedModules] = useState<Set<number>>(new Set());
   const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
+  const [quizWrong, setQuizWrong] = useState(false);
 
   const module = csvModules[currentModuleIdx];
   const isCompleted = completedModules.has(currentModuleIdx);
+
+  const handleQuizAnswer = (opt: string) => {
+    if (quizAnswer || isCompleted) return;
+    if (opt === quiz.correct) {
+      setQuizAnswer(opt);
+      setQuizWrong(false);
+      // Auto-complete the module
+      completeModule(module.content_id);
+      addXP(module.xpReward);
+      addCoins(module.coinReward);
+      setCompletedModules(prev => new Set([...prev, currentModuleIdx]));
+      if (currentModuleIdx === csvModules.length - 1) unlockBadge('yolo-survivor');
+    } else {
+      setQuizWrong(true);
+      setTimeout(() => setQuizWrong(false), 1200);
+    }
+  };
 
   // Simple quiz per module
   const quizzes: Record<string, { question: string; options: string[]; correct: string }> = {
@@ -63,18 +81,6 @@ export function Level1Page() {
   };
 
   const quiz = quizzes[module.module_id];
-
-  const handleCompleteModule = () => {
-    if (!isCompleted && quizAnswer === quiz.correct) {
-      completeModule(module.content_id);
-      addXP(module.xpReward);
-      addCoins(module.coinReward);
-      setCompletedModules(prev => new Set([...prev, currentModuleIdx]));
-      if (currentModuleIdx === csvModules.length - 1) {
-        unlockBadge('yolo-survivor');
-      }
-    }
-  };
 
   const handleNext = () => {
     if (currentModuleIdx < csvModules.length - 1) {
@@ -268,61 +274,64 @@ export function Level1Page() {
               <p className="text-white text-sm font-mono mb-3">{quiz.question}</p>
               <div className="grid grid-cols-1 gap-2">
                 {quiz.options.map(opt => {
-                  const selected = quizAnswer === opt;
                   const isCorrect = opt === quiz.correct;
-                  const showResult = quizAnswer !== null;
                   return (
-                    <button
+                    <motion.button
                       key={opt}
-                      onClick={() => !quizAnswer && setQuizAnswer(opt)}
-                      disabled={!!quizAnswer}
+                      onClick={() => handleQuizAnswer(opt)}
+                      disabled={isCompleted}
+                      whileTap={!isCompleted ? { scale: 0.98 } : {}}
                       className={`text-left px-4 py-2.5 border font-mono text-sm transition-all ${
-                        showResult
-                          ? isCorrect
-                            ? 'bg-[#00FF41]/15 border-[#00FF41] text-[#00FF41]'
-                            : selected
-                            ? 'bg-red-500/15 border-red-500 text-red-400'
-                            : 'bg-transparent border-[#00FF41]/10 text-gray-600'
-                          : 'bg-transparent border-[#00FF41]/20 text-gray-300 hover:border-[#00FF41]/60 hover:bg-[#00FF41]/5 cursor-pointer'
+                        isCompleted && isCorrect
+                          ? 'bg-[#00FF41]/15 border-[#00FF41] text-[#00FF41]'
+                          : !isCompleted
+                          ? 'bg-transparent border-[#00FF41]/20 text-gray-300 hover:border-[#00FF41]/60 hover:bg-[#00FF41]/5 cursor-pointer'
+                          : 'bg-transparent border-[#00FF41]/10 text-gray-600'
                       }`}
                     >
                       <span className="text-[#00FF41]/40 mr-2">›</span>{opt}
-                    </button>
+                    </motion.button>
                   );
                 })}
               </div>
-              {quizAnswer && (
-                <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className={`mt-3 p-3 border text-xs font-mono ${quizAnswer === quiz.correct ? 'bg-[#00FF41]/10 border-[#00FF41]/30 text-[#00FF41]' : 'bg-red-500/10 border-red-500/30 text-red-400'}`}>
-                  {quizAnswer === quiz.correct ? '✓ Doğru! Modülü tamamlayabilirsin.' : `✗ Yanlış. Doğru cevap: "${quiz.correct}"`}
-                </motion.div>
-              )}
+              <AnimatePresence>
+                {quizWrong && (
+                  <motion.div initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} className="mt-2 p-2.5 border border-red-500/30 bg-red-500/10 text-red-400 text-xs font-mono">
+                    ✗ Yanlış! Tekrar dene.
+                  </motion.div>
+                )}
+                {isCompleted && (
+                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="mt-2 p-2.5 border border-[#00FF41]/30 bg-[#00FF41]/10 text-[#00FF41] text-xs font-mono">
+                    ✓ Doğru! +{module.xpReward} XP ve +{module.coinReward} 🪙 kazandın.
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </MatrixCard>
 
             {/* Navigation buttons */}
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center justify-between gap-3 mt-1">
               <Button onClick={handlePrev} disabled={currentModuleIdx === 0} variant="outline" className="border-[#00FF41]/30 text-[#00FF41]/70 hover:border-[#00FF41] hover:text-[#00FF41] bg-transparent rounded-none font-mono text-sm px-5">
                 <ArrowLeft className="w-4 h-4 mr-1.5" /> Önceki
               </Button>
 
-              {!isCompleted ? (
-                <Button
-                  onClick={handleCompleteModule}
-                  disabled={quizAnswer !== quiz.correct}
-                  className={`flex-1 font-mono font-bold rounded-none text-sm py-2.5 ${quizAnswer === quiz.correct ? 'bg-[#00FF41] text-black hover:bg-[#00CC33] shadow-[0_0_15px_rgba(0,255,65,0.3)]' : 'bg-[#001400] text-[#00FF41]/40 border border-[#00FF41]/10 cursor-not-allowed'}`}
-                >
-                  <CheckCircle className="w-4 h-4 mr-1.5" />
-                  {quizAnswer !== quiz.correct ? 'Önce Quiz\'i Tamamla' : `Modülü Tamamla (+${module.xpReward} XP)`}
-                </Button>
-              ) : (
-                <div className="flex-1 flex items-center justify-center gap-2 bg-[#00FF41]/10 border border-[#00FF41]/30 py-2.5 font-mono text-sm text-[#00FF41]">
-                  <CheckCircle className="w-4 h-4" /> Tamamlandı!
-                </div>
-              )}
+              <div className="flex-1 flex items-center justify-center">
+                {!isCompleted ? (
+                  <span className="text-gray-600 font-mono text-xs">Quiz'i doğru cevapla → Sonraki aktif olur</span>
+                ) : (
+                  <div className="flex items-center gap-2 text-[#00FF41] font-mono text-xs">
+                    <CheckCircle className="w-3.5 h-3.5" /> Modül tamamlandı!
+                  </div>
+                )}
+              </div>
 
               <Button
                 onClick={handleNext}
-                disabled={!isCompleted && currentModuleIdx < csvModules.length - 1}
-                className="bg-[#001400] border border-[#00FF41]/20 text-[#00FF41]/60 hover:bg-[#00FF41]/10 hover:text-[#00FF41] rounded-none font-mono text-sm px-5 disabled:opacity-30"
+                disabled={!isCompleted}
+                className={`rounded-none font-mono font-bold text-sm px-5 py-2.5 transition-all ${
+                  isCompleted
+                    ? 'bg-[#00FF41] text-black hover:bg-[#00CC33] shadow-[0_0_15px_rgba(0,255,65,0.3)]'
+                    : 'bg-[#001400] border border-[#00FF41]/10 text-[#00FF41]/30 cursor-not-allowed'
+                }`}
               >
                 {currentModuleIdx === csvModules.length - 1 ? 'Tuzaklar' : 'Sonraki'}
                 <ArrowRight className="w-4 h-4 ml-1.5" />
