@@ -27,7 +27,7 @@ function AppContent() {
     <div className={theme}>
       {showMatrixRain && <MatrixRain opacity={0.08} speed={0.8} />}
       
-      <div className={showNavBar ? 'pb-28' : ''}>
+      <div className={showNavBar ? 'pl-[72px]' : ''}>
         {currentView === 'landing' && <LandingPage />}
         {currentView === 'pill-choice' && <PillChoicePage />}
         {currentView === 'awakening' && <AwakeningPage />}

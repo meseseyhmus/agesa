@@ -11,12 +11,12 @@ import {
 } from 'lucide-react';
 
 const NAV_ITEMS = [
-  { id: 'landing', icon: Home, label: 'Ana Sayfa' },
-  { id: 'level1', icon: BookOpen, label: 'Eğitim' },
-  { id: 'retirement', icon: Landmark, label: 'BES' },
-  { id: 'minigame', icon: Gamepad2, label: 'Oyunlar' },
-  { id: 'leaderboard', icon: Trophy, label: 'Sıralama' },
-  { id: 'profile', icon: User, label: 'Profil' },
+  { id: 'landing',     icon: Home,      label: 'Ana Sayfa' },
+  { id: 'level1',      icon: BookOpen,  label: 'Eğitim'   },
+  { id: 'retirement',  icon: Landmark,  label: 'BES'       },
+  { id: 'minigame',    icon: Gamepad2,  label: 'Oyunlar'   },
+  { id: 'leaderboard', icon: Trophy,    label: 'Sıralama'  },
+  { id: 'profile',     icon: User,      label: 'Profil'    },
 ] as const;
 
 export function NavigationBar() {
@@ -24,35 +24,29 @@ export function NavigationBar() {
 
   return (
     <motion.nav
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
+      initial={{ x: -80 }}
+      animate={{ x: 0 }}
       transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-      className="fixed bottom-0 left-0 right-0 z-50"
+      className="fixed left-0 top-0 bottom-0 z-50 flex flex-col"
+      style={{ width: '72px' }}
     >
-      {/* XP/Coin strip */}
-      <div className="flex justify-center gap-4 pb-1 pt-1 px-4">
-        <div className="flex items-center gap-1.5 bg-[#001400]/90 border border-[#00FF41]/30 rounded-full px-3 py-1 backdrop-blur-md">
-          <Sparkles className="w-3 h-3 text-[#00FF41]" />
-          <span className="text-[#00FF41] text-xs font-mono font-bold">{user.xp} XP</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-[#001400]/90 border border-[#00FF41]/30 rounded-full px-3 py-1 backdrop-blur-md">
-          <span className="text-xs">🪙</span>
-          <span className="text-[#00FF41] text-xs font-mono font-bold">{user.coins}</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-[#001400]/90 border border-[#00FF41]/30 rounded-full px-3 py-1 backdrop-blur-md">
-          <span className="text-xs">🏆</span>
-          <span className="text-[#00FF41] text-xs font-mono font-bold">{user.badges.length}</span>
-        </div>
-      </div>
+      {/* Sidebar panel */}
+      <div className="flex flex-col h-full bg-[#080f08]/95 backdrop-blur-xl border-r border-[#00FF41]/20 shadow-[4px_0_30px_rgba(0,255,65,0.08)]">
 
-      {/* Nav bar */}
-      <div className="bg-[#0a0f0a]/95 backdrop-blur-xl border-t border-[#00FF41]/20 shadow-[0_-4px_30px_rgba(0,255,65,0.1)]">
-        <div className="max-w-lg mx-auto flex justify-around items-center px-2 py-1">
+        {/* Logo / top accent */}
+        <div className="flex items-center justify-center py-4 border-b border-[#00FF41]/15">
+          <div className="w-9 h-9 flex items-center justify-center bg-[#00FF41]/10 border border-[#00FF41]/40 rounded">
+            <Sparkles className="w-5 h-5 text-[#00FF41]" />
+          </div>
+        </div>
+
+        {/* Nav items */}
+        <div className="flex flex-col items-center gap-1 py-3 flex-1">
           {NAV_ITEMS.map((item) => {
             const isActive =
               currentView === item.id ||
-              (item.id === 'level1' && ['level1', 'level2', 'level3', 'quiz', 'boss'].includes(currentView)) ||
-              (item.id === 'landing' && ['landing', 'pill-choice', 'awakening'].includes(currentView));
+              (item.id === 'level1'   && ['level1','level2','level3','quiz','boss'].includes(currentView)) ||
+              (item.id === 'landing'  && ['landing','pill-choice','awakening'].includes(currentView));
 
             const Icon = item.icon;
 
@@ -60,19 +54,19 @@ export function NavigationBar() {
               <button
                 key={item.id}
                 onClick={() => setCurrentView(item.id as any)}
-                className="relative flex flex-col items-center gap-0.5 py-2 px-3 rounded-xl transition-all group"
+                className="relative w-full flex flex-col items-center gap-1 py-3 px-1 transition-all group"
               >
-                {/* Active indicator */}
+                {/* Active left-edge indicator */}
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute -top-[1px] left-1/2 -translate-x-1/2 w-8 h-0.5 bg-[#00FF41] rounded-full shadow-[0_0_8px_rgba(0,255,65,0.6)]"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-8 bg-[#00FF41] rounded-r-full shadow-[0_0_8px_rgba(0,255,65,0.7)]"
                     transition={{ type: 'spring', stiffness: 300, damping: 25 }}
                   />
                 )}
 
                 <div
-                  className={`p-1.5 rounded-lg transition-all ${
+                  className={`p-2 rounded-lg transition-all ${
                     isActive
                       ? 'bg-[#00FF41]/15 text-[#00FF41]'
                       : 'text-gray-500 group-hover:text-[#00FF41]/70 group-hover:bg-[#00FF41]/5'
@@ -82,7 +76,7 @@ export function NavigationBar() {
                 </div>
 
                 <span
-                  className={`text-[10px] font-medium transition-colors ${
+                  className={`text-[9px] font-mono font-medium leading-none transition-colors ${
                     isActive ? 'text-[#00FF41]' : 'text-gray-600 group-hover:text-gray-400'
                   }`}
                 >
@@ -93,8 +87,22 @@ export function NavigationBar() {
           })}
         </div>
 
-        {/* Safe area for mobile */}
-        <div className="h-[env(safe-area-inset-bottom,0px)]" />
+        {/* Stats strip at bottom */}
+        <div className="border-t border-[#00FF41]/15 py-3 flex flex-col items-center gap-2">
+          <div className="flex flex-col items-center gap-0.5">
+            <Sparkles className="w-3 h-3 text-[#00FF41]/60" />
+            <span className="text-[#00FF41] text-[10px] font-mono font-bold">{user.xp}</span>
+            <span className="text-gray-700 text-[8px] font-mono">XP</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[10px]">🪙</span>
+            <span className="text-[#00FF41] text-[10px] font-mono font-bold">{user.coins}</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[10px]">🏆</span>
+            <span className="text-[#00FF41] text-[10px] font-mono font-bold">{user.badges.length}</span>
+          </div>
+        </div>
       </div>
     </motion.nav>
   );

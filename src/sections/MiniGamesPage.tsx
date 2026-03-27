@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useGame } from '@/context/GameContext';
 import { MatrixCard } from '@/components/MatrixCard';
 import { Button } from '@/components/ui/button';
@@ -7,15 +7,11 @@ import {
   ArrowLeft,
   Trophy,
   Zap,
-  Target,
   TrendingUp,
-  TrendingDown,
   CheckCircle,
   XCircle,
   Sparkles,
   RefreshCw,
-  Coins,
-  Clock,
 } from 'lucide-react';
 
 /* ─── GAME 1: BUDGET BLASTER ─── */
@@ -49,12 +45,13 @@ const createPairs = () => {
 type GameId = 'budget' | 'memory' | 'compound' | null;
 
 export function MiniGamesPage() {
-  const { setCurrentView, addXP, addCoins, unlockBadge, user } = useGame();
+  const { addXP, addCoins, unlockBadge, user } = useGame();
   const [selectedGame, setSelectedGame] = useState<GameId>(null);
 
   /* ── BUDGET BLASTER state ── */
   const [budgetIdx, setBudgetIdx] = useState(0);
   const [budgetScore, setBudgetScore] = useState(0);
+  const budgetScoreRef = useRef(0); // tracks real-time score for stale closure safety
   const [budgetSaved, setBudgetSaved] = useState(0);
   const [budgetOver, setBudgetOver] = useState(false);
   const [budgetFeedback, setBudgetFeedback] = useState<'correct' | 'wrong' | null>(null);
@@ -87,7 +84,8 @@ export function MiniGamesPage() {
 
     setBudgetFeedback(correct ? 'correct' : 'wrong');
     if (correct) {
-      setBudgetScore(s => s + 10);
+      budgetScoreRef.current += 10;
+      setBudgetScore(budgetScoreRef.current);
       if (item.type === 'save') setBudgetSaved(s => s + item.amount);
     }
 
@@ -97,31 +95,35 @@ export function MiniGamesPage() {
         setBudgetIdx(i => i + 1);
       } else {
         setBudgetOver(true);
-        if (budgetScore >= 80) unlockBadge('impulse-resistance');
+        // use ref for accurate score (no stale closure)
+        if (budgetScoreRef.current >= 80) unlockBadge('impulse-resistance');
       }
     }, 700);
   };
 
   /* ─────── MATRIX MEMORY handlers ─────── */
-  const handleMemCard = useCallback((id: number) => {
+  const handleMemCard = useCallback((cardId: number) => {
     if (memLocked) return;
-    const card = memCards[id];
-    if (card.flipped || card.matched) return;
+    // Find card by its .id property (not array index)
+    const card = memCards.find(c => c.id === cardId);
+    if (!card || card.flipped || card.matched) return;
 
-    const newCards = memCards.map(c => c.id === id ? { ...c, flipped: true } : c);
+    const newCards = memCards.map(c => c.id === cardId ? { ...c, flipped: true } : c);
     setMemCards(newCards);
 
-    const newFlipped = [...flipped, id];
+    const newFlipped = [...flipped, cardId];
     setFlipped(newFlipped);
 
     if (newFlipped.length === 2) {
       setMemMoves(m => m + 1);
       setMemLocked(true);
-      const [a, b] = newFlipped;
-      if (memCards[a].symbol === memCards[b].symbol) {
+      const [aId, bId] = newFlipped;
+      const cardA = newCards.find(c => c.id === aId);
+      const cardB = newCards.find(c => c.id === bId);
+      if (cardA && cardB && cardA.symbol === cardB.symbol) {
         setTimeout(() => {
           setMemCards(prev => prev.map(c =>
-            c.id === a || c.id === b ? { ...c, matched: true } : c
+            c.id === aId || c.id === bId ? { ...c, matched: true } : c
           ));
           setMemMatched(m => {
             const next = m + 1;
@@ -134,7 +136,7 @@ export function MiniGamesPage() {
       } else {
         setTimeout(() => {
           setMemCards(prev => prev.map(c =>
-            c.id === a || c.id === b ? { ...c, flipped: false } : c
+            c.id === aId || c.id === bId ? { ...c, flipped: false } : c
           ));
           setFlipped([]);
           setMemLocked(false);
@@ -470,7 +472,8 @@ export function MiniGamesPage() {
               transition={{ delay: i * 0.1 }}
               whileHover={{ x: 4 }}
             >
-              <MatrixCard className="p-5 cursor-pointer hover:shadow-[0_0_20px_rgba(0,255,65,0.15)] transition-all" onClick={() => setSelectedGame(game.id)}>
+              <div onClick={() => setSelectedGame(game.id)} className="cursor-pointer">
+              <MatrixCard className="p-5 hover:shadow-[0_0_20px_rgba(0,255,65,0.15)] transition-all">
                 <div className="flex items-center gap-4">
                   <div className="text-4xl flex-shrink-0">{game.icon}</div>
                   <div className="flex-1 min-w-0">
@@ -488,6 +491,7 @@ export function MiniGamesPage() {
                   </div>
                 </div>
               </MatrixCard>
+              </div>
             </motion.div>
           ))}
         </div>
