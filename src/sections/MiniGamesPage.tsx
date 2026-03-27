@@ -1,393 +1,510 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useGame } from '@/context/GameContext';
+import { MatrixCard } from '@/components/MatrixCard';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Coffee, 
-  Smartphone, 
-  ShoppingBag, 
-  Car,
-  Gamepad2,
+import {
+  ArrowLeft,
+  Trophy,
+  Zap,
+  Target,
+  TrendingUp,
+  TrendingDown,
   CheckCircle,
   XCircle,
-  Sparkles
+  Sparkles,
+  RefreshCw,
+  Coins,
+  Clock,
 } from 'lucide-react';
 
-// Attention Hunter Game
-interface Distraction {
-  id: string;
-  icon: React.ReactNode;
-  name: string;
-  type: 'good' | 'bad';
-}
-
-const distractions: Distraction[] = [
-  { id: '1', icon: <Coffee className="w-8 h-8" />, name: 'Kahve', type: 'bad' },
-  { id: '2', icon: <Smartphone className="w-8 h-8" />, name: 'Telefon', type: 'bad' },
-  { id: '3', icon: <ShoppingBag className="w-8 h-8" />, name: 'Alışveriş', type: 'bad' },
-  { id: '4', icon: <Car className="w-8 h-8" />, name: 'Yeni Araba', type: 'bad' },
-  { id: '5', icon: <span className="text-3xl">📚</span>, name: 'Kitap', type: 'good' },
-  { id: '6', icon: <span className="text-3xl">💰</span>, name: 'Birikim', type: 'good' },
+/* ─── GAME 1: BUDGET BLASTER ─── */
+const budgetItems = [
+  { text: 'Kira', amount: 6000, type: 'necessary' as const },
+  { text: 'Elektrik Faturası', amount: 500, type: 'necessary' as const },
+  { text: 'Market Alışverişi', amount: 2000, type: 'necessary' as const },
+  { text: 'Sağlık Sigortası', amount: 800, type: 'necessary' as const },
+  { text: 'Ulaşım', amount: 600, type: 'necessary' as const },
+  { text: 'Yeni Oyun Konsolu', amount: 12000, type: 'unnecessary' as const },
+  { text: 'Lüks Restoran', amount: 2500, type: 'unnecessary' as const },
+  { text: 'Designer Çanta', amount: 8000, type: 'unnecessary' as const },
+  { text: 'Kullanmadığın Abonelik', amount: 400, type: 'unnecessary' as const },
+  { text: 'Anlık Tatil', amount: 15000, type: 'unnecessary' as const },
+  { text: 'Acil Durum Fonu', amount: 3000, type: 'save' as const },
+  { text: 'Emeklilik Birikimi', amount: 2000, type: 'save' as const },
 ];
 
-// Decision Jump Game
-interface DecisionItem {
-  id: string;
-  text: string;
-  type: 'good' | 'bad';
-  emoji: string;
-}
+/* ─── GAME 2: MATRIX MEMORY ─── */
+const symbols = ['💰', '📈', '🏦', '💳', '🪙', '📊'];
+const createPairs = () => {
+  const cards = [...symbols, ...symbols]
+    .map((sym, i) => ({ id: i, symbol: sym, flipped: false, matched: false }))
+    .sort(() => Math.random() - 0.5);
+  return cards;
+};
 
-const decisionItems: DecisionItem[] = [
-  { id: '1', text: '%50 İndirimli Ayakkabı', type: 'bad', emoji: '👟' },
-  { id: '2', text: 'Hisse Senedi Al', type: 'good', emoji: '📈' },
-  { id: '3', text: 'Yeni iPhone', type: 'bad', emoji: '📱' },
-  { id: '4', text: 'Acil Durum Fonu', type: 'good', emoji: '🏦' },
-  { id: '5', text: 'Lüks Tatil', type: 'bad', emoji: '🏖️' },
-  { id: '6', text: 'Online Kurs', type: 'good', emoji: '🎓' },
-  { id: '7', text: 'Gereksiz Abonelik', type: 'bad', emoji: '🔄' },
-  { id: '8', text: 'Bütçe Planı', type: 'good', emoji: '📊' },
-];
+/* ─── GAME 3: COMPOUND CLICKER ─── */
+
+
+type GameId = 'budget' | 'memory' | 'compound' | null;
 
 export function MiniGamesPage() {
-  const { setCurrentView, addXP, addCoins, unlockBadge } = useGame();
-  const [selectedGame, setSelectedGame] = useState<'attention' | 'decision' | null>(null);
+  const { setCurrentView, addXP, addCoins, unlockBadge, user } = useGame();
+  const [selectedGame, setSelectedGame] = useState<GameId>(null);
 
-  // Attention Hunter State
-  const [attentionScore, setAttentionScore] = useState(0);
-  const [attentionTimeLeft, setAttentionTimeLeft] = useState(30);
-  const [activeDistractions, setActiveDistractions] = useState<string[]>([]);
-  const [attentionGameOver, setAttentionGameOver] = useState(false);
+  /* ── BUDGET BLASTER state ── */
+  const [budgetIdx, setBudgetIdx] = useState(0);
+  const [budgetScore, setBudgetScore] = useState(0);
+  const [budgetSaved, setBudgetSaved] = useState(0);
+  const [budgetOver, setBudgetOver] = useState(false);
+  const [budgetFeedback, setBudgetFeedback] = useState<'correct' | 'wrong' | null>(null);
+  const shuffledBudget = useState(() => [...budgetItems].sort(() => Math.random() - 0.5))[0];
 
-  // Decision Jump State
-  const [currentItem, setCurrentItem] = useState(0);
-  const [decisionScore, setDecisionScore] = useState(0);
-  const [decisionResults, setDecisionResults] = useState<boolean[]>([]);
-  const [decisionGameOver, setDecisionGameOver] = useState(false);
+  /* ── MATRIX MEMORY state ── */
+  const [memCards, setMemCards] = useState(() => createPairs());
+  const [flipped, setFlipped] = useState<number[]>([]);
+  const [memMatched, setMemMatched] = useState(0);
+  const [memMoves, setMemMoves] = useState(0);
+  const [memOver, setMemOver] = useState(false);
+  const [memLocked, setMemLocked] = useState(false);
 
-  // Attention Hunter Game
-  useEffect(() => {
-    if (selectedGame === 'attention' && attentionTimeLeft > 0 && !attentionGameOver) {
-      const timer = setInterval(() => {
-        setAttentionTimeLeft(prev => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (attentionTimeLeft === 0) {
-      setAttentionGameOver(true);
+  /* ── COMPOUND CLICKER state ── */
+  const [balance, setBalance] = useState(1000);
+  const [year, setYear] = useState(0);
+  const [rate, setRate] = useState(0.1);
+  const [clickXP, setClickXP] = useState(0);
+  const [compoundOver, setCompoundOver] = useState(false);
+  const TARGET = 10000;
+
+  /* ─────── BUDGET BLASTER handlers ─────── */
+  const handleBudgetChoice = (choice: 'keep' | 'cut') => {
+    const item = shuffledBudget[budgetIdx];
+    let correct = false;
+
+    if (item.type === 'necessary' && choice === 'keep') correct = true;
+    if (item.type === 'unnecessary' && choice === 'cut') correct = true;
+    if (item.type === 'save' && choice === 'keep') correct = true;
+
+    setBudgetFeedback(correct ? 'correct' : 'wrong');
+    if (correct) {
+      setBudgetScore(s => s + 10);
+      if (item.type === 'save') setBudgetSaved(s => s + item.amount);
     }
-  }, [selectedGame, attentionTimeLeft, attentionGameOver]);
 
-  useEffect(() => {
-    if (selectedGame === 'attention' && !attentionGameOver) {
-      const spawner = setInterval(() => {
-        const randomDistraction = distractions[Math.floor(Math.random() * distractions.length)];
-        setActiveDistractions(prev => {
-          if (prev.length >= 5) return prev;
-          return [...prev, randomDistraction.id];
-        });
-        
-        setTimeout(() => {
-          setActiveDistractions(prev => prev.filter(id => id !== randomDistraction.id));
-        }, 3000);
-      }, 1500);
-      return () => clearInterval(spawner);
-    }
-  }, [selectedGame, attentionGameOver]);
-
-  const handleDistractionClick = (distraction: Distraction) => {
-    if (distraction.type === 'bad') {
-      setAttentionScore(prev => prev + 10);
-    } else {
-      setAttentionScore(prev => Math.max(0, prev - 5));
-    }
-    setActiveDistractions(prev => prev.filter(id => id !== distraction.id));
+    setTimeout(() => {
+      setBudgetFeedback(null);
+      if (budgetIdx < shuffledBudget.length - 1) {
+        setBudgetIdx(i => i + 1);
+      } else {
+        setBudgetOver(true);
+        if (budgetScore >= 80) unlockBadge('impulse-resistance');
+      }
+    }, 700);
   };
 
-  // Decision Jump Game
-  const handleDecision = (decision: 'left' | 'right') => {
-    const item = decisionItems[currentItem];
-    const isCorrect = (decision === 'left' && item.type === 'bad') || 
-                      (decision === 'right' && item.type === 'good');
-    
-    setDecisionResults(prev => [...prev, isCorrect]);
-    if (isCorrect) {
-      setDecisionScore(prev => prev + 1);
-    }
+  /* ─────── MATRIX MEMORY handlers ─────── */
+  const handleMemCard = useCallback((id: number) => {
+    if (memLocked) return;
+    const card = memCards[id];
+    if (card.flipped || card.matched) return;
 
-    if (currentItem < decisionItems.length - 1) {
-      setCurrentItem(prev => prev + 1);
-    } else {
-      setDecisionGameOver(true);
-      if (decisionScore >= 5) {
-        unlockBadge('impulse-resistance');
+    const newCards = memCards.map(c => c.id === id ? { ...c, flipped: true } : c);
+    setMemCards(newCards);
+
+    const newFlipped = [...flipped, id];
+    setFlipped(newFlipped);
+
+    if (newFlipped.length === 2) {
+      setMemMoves(m => m + 1);
+      setMemLocked(true);
+      const [a, b] = newFlipped;
+      if (memCards[a].symbol === memCards[b].symbol) {
+        setTimeout(() => {
+          setMemCards(prev => prev.map(c =>
+            c.id === a || c.id === b ? { ...c, matched: true } : c
+          ));
+          setMemMatched(m => {
+            const next = m + 1;
+            if (next === symbols.length) setMemOver(true);
+            return next;
+          });
+          setFlipped([]);
+          setMemLocked(false);
+        }, 500);
+      } else {
+        setTimeout(() => {
+          setMemCards(prev => prev.map(c =>
+            c.id === a || c.id === b ? { ...c, flipped: false } : c
+          ));
+          setFlipped([]);
+          setMemLocked(false);
+        }, 900);
       }
     }
+  }, [memCards, flipped, memLocked]);
+
+  /* ─────── COMPOUND CLICKER handlers ─────── */
+  const handleInvest = () => {
+    if (year >= 30) return;
+    const gain = balance * rate;
+    setBalance(b => parseFloat((b + gain).toFixed(0)));
+    setYear(y => y + 1);
+    setClickXP(x => x + 5);
+    if (balance + gain >= TARGET) setCompoundOver(true);
   };
 
-  const handleFinishGame = () => {
-    const totalScore = (selectedGame === 'attention' ? attentionScore : decisionScore * 10);
-    addXP(totalScore);
-    addCoins(Math.floor(totalScore / 2));
-    setCurrentView('profile');
+  const handleRateUp = () => {
+    if (user.coins >= 20) {
+      addCoins(-20);
+      setRate(r => Math.min(r + 0.05, 0.5));
+    }
   };
 
-  if (selectedGame === 'attention') {
+  /* ─────── reward on finish ─────── */
+  const finishGame = (xp: number, coins: number) => {
+    addXP(xp);
+    addCoins(coins);
+    setSelectedGame(null);
+    unlockBadge('impulse-resistance');
+  };
+
+  /* ─────── RESET helpers ─────── */
+  const resetMemory = () => {
+    setMemCards(createPairs());
+    setFlipped([]);
+    setMemMatched(0);
+    setMemMoves(0);
+    setMemOver(false);
+    setMemLocked(false);
+  };
+
+  const resetCompound = () => {
+    setBalance(1000);
+    setYear(0);
+    setRate(0.1);
+    setClickXP(0);
+    setCompoundOver(false);
+  };
+
+  /* ══════════════ BUDGET BLASTER ══════════════ */
+  if (selectedGame === 'budget') {
+    const item = shuffledBudget[budgetIdx];
     return (
-      <div className="min-h-screen bg-gradient-to-br from-amber-900 via-orange-900 to-red-900 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => setSelectedGame(null)} className="text-white">
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Geri
+      <div className="min-h-screen bg-[#0D0208] relative overflow-hidden p-4">
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(0,255,65,0.15) 1px, transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.15) 1px,transparent 1px)`, backgroundSize: '40px 40px' }} />
+        <div className="relative z-10 max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-6 border-b border-[#00FF41]/20 pb-3">
+            <Button variant="ghost" onClick={() => setSelectedGame(null)} className="text-[#00FF41] hover:bg-[#00FF41]/10 font-mono text-sm px-3 rounded-none">
+              <ArrowLeft className="w-4 h-4 mr-1" /> Geri
             </Button>
-            <h1 className="text-2xl font-bold text-white">Dikkat Avcısı</h1>
-            <div className="text-white">
-              Skor: <span className="text-yellow-400 font-bold">{attentionScore}</span>
+            <h1 className="text-lg font-bold text-[#00FF41] font-mono matrix-glow">BÜTÇE BLASTER</h1>
+            <div className="bg-[#001400] border border-[#00FF41]/30 px-3 py-1 font-mono text-sm text-[#00FF41]">
+              {budgetScore} puan
             </div>
           </div>
 
-          {!attentionGameOver ? (
-            <>
-              <div className="mb-4">
-                <div className="flex justify-between text-white mb-2">
-                  <span>Kalan Süre</span>
-                  <span>{attentionTimeLeft}s</span>
-                </div>
-                <div className="h-3 bg-white/20 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-green-500 to-red-500"
-                    initial={{ width: '100%' }}
-                    animate={{ width: `${(attentionTimeLeft / 30) * 100}%` }}
-                  />
-                </div>
-              </div>
+          {/* Progress */}
+          <div className="h-1.5 bg-[#001400] mb-6">
+            <div className="h-full bg-[#00FF41] transition-all" style={{ width: `${(budgetIdx / shuffledBudget.length) * 100}%` }} />
+          </div>
 
-              <Card className="bg-white/10 backdrop-blur border-white/20 h-[500px] relative overflow-hidden">
-                <CardContent className="p-0 h-full relative">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Coffee className="w-32 h-32 text-white/10" />
+          {!budgetOver ? (
+            <AnimatePresence mode="wait">
+              <motion.div key={budgetIdx} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}>
+                <MatrixCard className="p-8 text-center mb-6">
+                  <div className={`inline-flex items-center justify-center w-16 h-16 border mb-4 ${item.type === 'necessary' ? 'border-blue-500/50 bg-blue-500/10' : item.type === 'save' ? 'border-[#00FF41]/50 bg-[#00FF41]/10' : 'border-red-500/50 bg-red-500/10'}`}>
+                    <span className="text-3xl">
+                      {item.type === 'necessary' ? '📋' : item.type === 'save' ? '🏦' : '🛍️'}
+                    </span>
                   </div>
-                  
-                  <AnimatePresence>
-                    {activeDistractions.map((distId) => {
-                      const distraction = distractions.find(d => d.id === distId);
-                      if (!distraction) return null;
-                      
-                      const randomX = Math.random() * 80 + 10;
-                      const randomY = Math.random() * 70 + 15;
-                      
-                      return (
-                        <motion.button
-                          key={distId}
-                          initial={{ opacity: 0, scale: 0 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          exit={{ opacity: 0, scale: 0 }}
-                          onClick={() => handleDistractionClick(distraction)}
-                          style={{ left: `${randomX}%`, top: `${randomY}%` }}
-                          className={`absolute p-4 rounded-full shadow-lg transition-transform hover:scale-110 ${
-                            distraction.type === 'bad' 
-                              ? 'bg-red-500/80 text-white' 
-                              : 'bg-green-500/80 text-white'
-                          }`}
-                        >
-                          {distraction.icon}
-                        </motion.button>
-                      );
-                    })}
-                  </AnimatePresence>
-                </CardContent>
-              </Card>
+                  <h2 className="text-xl font-bold text-white font-mono mb-1">{item.text}</h2>
+                  <p className="text-2xl font-bold text-yellow-400 font-mono">{item.amount.toLocaleString()} TL</p>
+                  <p className="text-gray-600 font-mono text-xs mt-2">{budgetIdx + 1} / {shuffledBudget.length}</p>
 
-              <div className="mt-4 text-center text-gray-300">
-                <p>Kötü dikkat dağıtıcılara (🔴) tıkla, iyilerden (🟢) kaçın!</p>
-              </div>
-            </>
+                  {budgetFeedback && (
+                    <motion.div initial={{ scale: 0.5 }} animate={{ scale: 1 }} className={`mt-4 py-2 font-mono text-sm font-bold ${budgetFeedback === 'correct' ? 'text-[#00FF41]' : 'text-red-400'}`}>
+                      {budgetFeedback === 'correct' ? '✓ Doğru! +10 puan' : '✗ Yanlış!'}
+                    </motion.div>
+                  )}
+                </MatrixCard>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleBudgetChoice('cut')}
+                    className="p-5 border-2 border-red-500/60 bg-red-500/10 hover:bg-red-500/20 text-center transition-all rounded">
+                    <XCircle className="w-10 h-10 text-red-400 mx-auto mb-2" />
+                    <span className="text-red-300 font-bold font-mono">KES</span>
+                    <p className="text-red-400/60 text-xs font-mono mt-1">Gereksiz</p>
+                  </motion.button>
+                  <motion.button whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} onClick={() => handleBudgetChoice('keep')}
+                    className="p-5 border-2 border-[#00FF41]/60 bg-[#00FF41]/10 hover:bg-[#00FF41]/20 text-center transition-all rounded">
+                    <CheckCircle className="w-10 h-10 text-[#00FF41] mx-auto mb-2" />
+                    <span className="text-[#00FF41] font-bold font-mono">TUTS</span>
+                    <p className="text-[#00FF41]/60 text-xs font-mono mt-1">Zorunlu / Birikim</p>
+                  </motion.button>
+                </div>
+
+                <p className="text-center text-gray-600 font-mono text-xs mt-4">Gereksiz harcamayı kes, zorunlu ve birikimi tut!</p>
+              </motion.div>
+            </AnimatePresence>
           ) : (
-            <Card className="bg-white/10 backdrop-blur border-white/20">
-              <CardContent className="p-8 text-center">
-                <h2 className="text-3xl font-bold text-white mb-4">Oyun Bitti!</h2>
-                <p className="text-5xl font-bold text-yellow-400 mb-4">{attentionScore}</p>
-                <p className="text-gray-300 mb-6">Toplam Skor</p>
-                <Button 
-                  size="lg" 
-                  onClick={handleFinishGame}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Ödülleri Al
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+              <MatrixCard className="p-8 text-center">
+                <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-[#00FF41] matrix-glow font-mono mb-2">OYUN BİTTİ!</h2>
+                <p className="text-4xl font-bold text-[#00FF41] font-mono mb-1">{budgetScore}</p>
+                <p className="text-gray-500 font-mono text-sm mb-4">/ {shuffledBudget.length * 10} puan</p>
+                <p className="text-yellow-400 font-mono text-sm mb-6">Birikim kararları: {budgetSaved.toLocaleString()} TL</p>
+                <Button onClick={() => finishGame(budgetScore, Math.floor(budgetScore / 5))}
+                  className="bg-[#00FF41] text-black hover:bg-[#00CC33] font-bold font-mono rounded-none px-8 py-3 shadow-[0_0_15px_rgba(0,255,65,0.4)]">
+                  <Sparkles className="w-4 h-4 mr-2" />ÖDÜLLÜ AL (+{Math.floor(budgetScore / 5)} 🪙)
                 </Button>
-              </CardContent>
-            </Card>
+              </MatrixCard>
+            </motion.div>
           )}
         </div>
       </div>
     );
   }
 
-  if (selectedGame === 'decision') {
-    const currentDecisionItem = decisionItems[currentItem];
-
+  /* ══════════════ MATRIX MEMORY ══════════════ */
+  if (selectedGame === 'memory') {
+    const score = Math.max(0, 100 - memMoves * 5);
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-900 via-indigo-900 to-purple-900 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
-            <Button variant="ghost" onClick={() => setSelectedGame(null)} className="text-white">
-              <ArrowLeft className="w-5 h-5 mr-2" />
-              Geri
+      <div className="min-h-screen bg-[#0D0208] relative overflow-hidden p-4">
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(0,255,65,0.15) 1px, transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.15) 1px,transparent 1px)`, backgroundSize: '40px 40px' }} />
+        <div className="relative z-10 max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-6 border-b border-[#00FF41]/20 pb-3">
+            <Button variant="ghost" onClick={() => setSelectedGame(null)} className="text-[#00FF41] hover:bg-[#00FF41]/10 font-mono text-sm px-3 rounded-none">
+              <ArrowLeft className="w-4 h-4 mr-1" /> Geri
             </Button>
-            <h1 className="text-2xl font-bold text-white">Karar Ver!</h1>
-            <div className="text-white">
-              {currentItem + 1} / {decisionItems.length}
+            <h1 className="text-lg font-bold text-[#00FF41] font-mono matrix-glow">MATRİX HAFIZA</h1>
+            <div className="flex gap-3 text-[#00FF41] font-mono text-sm">
+              <span>{memMoves} hamle</span>
+              <span>{memMatched}/{symbols.length} ✓</span>
             </div>
           </div>
 
-          {!decisionGameOver ? (
-            <>
-              <div className="mb-6">
-                <div className="h-2 bg-white/20 rounded-full overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-blue-500"
-                    initial={{ width: '0%' }}
-                    animate={{ width: `${((currentItem + 1) / decisionItems.length) * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              <Card className="bg-white/10 backdrop-blur border-white/20 mb-6">
-                <CardContent className="p-8 text-center">
-                  <div className="text-8xl mb-4">{currentDecisionItem.emoji}</div>
-                  <h2 className="text-2xl font-bold text-white">{currentDecisionItem.text}</h2>
-                </CardContent>
-              </Card>
-
-              <div className="grid grid-cols-2 gap-4">
+          {!memOver ? (
+            <div className="grid grid-cols-4 gap-2 mb-4">
+              {memCards.map((card) => (
                 <motion.button
-                  whileHover={{ scale: 1.05 }}
+                  key={card.id}
+                  onClick={() => handleMemCard(card.id)}
                   whileTap={{ scale: 0.95 }}
-                  onClick={() => handleDecision('left')}
-                  className="p-6 rounded-xl bg-red-500/20 border-2 border-red-500 hover:bg-red-500/30 transition-all"
+                  className={`aspect-square border-2 flex items-center justify-center text-2xl transition-all ${
+                    card.matched
+                      ? 'border-[#00FF41] bg-[#00FF41]/15 cursor-default'
+                      : card.flipped
+                      ? 'border-[#00FF41]/60 bg-[#001400]'
+                      : 'border-[#00FF41]/20 bg-[#050E05] hover:border-[#00FF41]/50 cursor-pointer'
+                  }`}
                 >
-                  <XCircle className="w-12 h-12 text-red-400 mx-auto mb-2" />
-                  <span className="text-white font-bold">Reddet (Sol)</span>
+                  <AnimatePresence mode="wait">
+                    {card.flipped || card.matched ? (
+                      <motion.span key="front" initial={{ rotateY: 90 }} animate={{ rotateY: 0 }} className="text-2xl">{card.symbol}</motion.span>
+                    ) : (
+                      <motion.span key="back" className="text-[#00FF41]/20 font-mono text-sm">?</motion.span>
+                    )}
+                  </AnimatePresence>
                 </motion.button>
-
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleDecision('right')}
-                  className="p-6 rounded-xl bg-green-500/20 border-2 border-green-500 hover:bg-green-500/30 transition-all"
-                >
-                  <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-2" />
-                  <span className="text-white font-bold">Kabul Et (Sağ)</span>
-                </motion.button>
-              </div>
-
-              <div className="mt-6 text-center text-gray-300">
-                <p>Kötü harcamayı reddet (sol), iyiyi kabul et (sağ)</p>
-              </div>
-            </>
+              ))}
+            </div>
           ) : (
-            <Card className="bg-white/10 backdrop-blur border-white/20">
-              <CardContent className="p-8 text-center">
-                <h2 className="text-3xl font-bold text-white mb-4">Oyun Bitti!</h2>
-                <p className="text-5xl font-bold text-green-400 mb-2">{decisionScore}</p>
-                <p className="text-gray-300 mb-4">/ {decisionItems.length} Doğru</p>
-                
-                <div className="flex flex-wrap justify-center gap-2 mb-6">
-                  {decisionResults.map((result, idx) => (
-                    <div 
-                      key={idx}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        result ? 'bg-green-500' : 'bg-red-500'
-                      }`}
-                    >
-                      {result ? <CheckCircle className="w-5 h-5 text-white" /> : <XCircle className="w-5 h-5 text-white" />}
-                    </div>
-                  ))}
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+              <MatrixCard className="p-8 text-center mb-4">
+                <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-[#00FF41] matrix-glow font-mono mb-2">TAMAMLANDI!</h2>
+                <p className="text-gray-400 font-mono text-sm mb-1">{memMoves} hamlede çözdün</p>
+                <p className="text-4xl font-bold text-[#00FF41] font-mono mb-4">{score} puan</p>
+                <div className="flex gap-3 justify-center">
+                  <Button onClick={resetMemory} variant="outline" className="border-[#00FF41]/40 text-[#00FF41] hover:bg-[#00FF41]/10 rounded-none font-mono">
+                    <RefreshCw className="w-4 h-4 mr-1" /> Tekrar
+                  </Button>
+                  <Button onClick={() => finishGame(score, Math.floor(score / 10))}
+                    className="bg-[#00FF41] text-black hover:bg-[#00CC33] font-bold font-mono rounded-none px-6 shadow-[0_0_15px_rgba(0,255,65,0.4)]">
+                    <Sparkles className="w-4 h-4 mr-2" />AL (+{Math.floor(score / 10)} 🪙)
+                  </Button>
                 </div>
+              </MatrixCard>
+            </motion.div>
+          )}
 
-                <Button 
-                  size="lg" 
-                  onClick={handleFinishGame}
-                  className="bg-green-500 hover:bg-green-600"
-                >
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Ödülleri Al
-                </Button>
-              </CardContent>
-            </Card>
+          <p className="text-center text-gray-600 font-mono text-xs">Finansal sembolleri eşleştir!</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ══════════════ COMPOUND CLICKER ══════════════ */
+  if (selectedGame === 'compound') {
+    const progress = Math.min((balance / TARGET) * 100, 100);
+    return (
+      <div className="min-h-screen bg-[#0D0208] relative overflow-hidden p-4">
+        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(0,255,65,0.15) 1px, transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.15) 1px,transparent 1px)`, backgroundSize: '40px 40px' }} />
+        <div className="relative z-10 max-w-lg mx-auto">
+          <div className="flex items-center justify-between mb-6 border-b border-[#00FF41]/20 pb-3">
+            <Button variant="ghost" onClick={() => setSelectedGame(null)} className="text-[#00FF41] hover:bg-[#00FF41]/10 font-mono text-sm px-3 rounded-none">
+              <ArrowLeft className="w-4 h-4 mr-1" /> Geri
+            </Button>
+            <h1 className="text-lg font-bold text-[#00FF41] font-mono matrix-glow">BİLEŞİK FAİZ</h1>
+            <div className="bg-[#001400] border border-[#00FF41]/30 px-3 py-1 font-mono text-sm text-[#00FF41]">
+              Yıl {year}/30
+            </div>
+          </div>
+
+          <MatrixCard className="p-6 mb-4 text-center">
+            <p className="text-gray-500 font-mono text-xs mb-1">TOPLAM BİRİKİM</p>
+            <motion.p key={balance} initial={{ scale: 1.1 }} animate={{ scale: 1 }} className="text-4xl font-bold text-[#00FF41] matrix-glow font-mono mb-1">
+              {balance.toLocaleString()} TL
+            </motion.p>
+            <p className="text-gray-600 font-mono text-xs">Hedef: {TARGET.toLocaleString()} TL</p>
+
+            <div className="my-4 h-2 bg-[#001400] border border-[#00FF41]/10">
+              <motion.div className="h-full bg-gradient-to-r from-[#008F11] to-[#00FF41]" animate={{ width: `${progress}%` }} />
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-4 text-xs font-mono">
+              <div className="bg-[#001400] border border-[#00FF41]/20 p-2">
+                <p className="text-gray-600">Faiz Oranı</p>
+                <p className="text-[#00FF41] font-bold">%{(rate * 100).toFixed(0)}</p>
+              </div>
+              <div className="bg-[#001400] border border-[#00FF41]/20 p-2">
+                <p className="text-gray-600">Yıllık Kazanç</p>
+                <p className="text-yellow-400 font-bold">{(balance * rate).toFixed(0)} TL</p>
+              </div>
+              <div className="bg-[#001400] border border-[#00FF41]/20 p-2">
+                <p className="text-gray-600">Kalan Yıl</p>
+                <p className="text-blue-400 font-bold">{30 - year}</p>
+              </div>
+            </div>
+          </MatrixCard>
+
+          {!compoundOver ? (
+            <div className="space-y-3">
+              <motion.button
+                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                onClick={handleInvest}
+                disabled={year >= 30}
+                className="w-full py-5 bg-[#00FF41] text-black font-bold font-mono text-lg hover:bg-[#00CC33] transition-all shadow-[0_0_20px_rgba(0,255,65,0.4)] disabled:opacity-40"
+              >
+                <TrendingUp className="w-5 h-5 inline mr-2" />
+                YIL GEÇIR (+1 yıl)
+              </motion.button>
+
+              <button onClick={handleRateUp} disabled={user.coins < 20} className="w-full py-3 border border-[#00FF41]/30 text-[#00FF41] font-mono text-sm hover:bg-[#00FF41]/10 disabled:opacity-30 transition-all">
+                <Zap className="w-4 h-4 inline mr-1" /> Faiz Artır (%{(rate * 100).toFixed(0)} → %{Math.min((rate + 0.05) * 100, 50).toFixed(0)}) — 20 🪙 harca
+              </button>
+
+              <p className="text-center text-gray-600 font-mono text-xs">10.000 TL'ye ulaş! Her yıl bileşik faiz çalışır.</p>
+            </div>
+          ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}>
+              <MatrixCard className="p-6 text-center">
+                <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-3" />
+                <h2 className="text-xl font-bold text-[#00FF41] matrix-glow font-mono mb-1">HEDEFE ULAŞILDI!</h2>
+                <p className="text-gray-400 font-mono text-sm mb-3">{year} yılda {balance.toLocaleString()} TL biriktirdin!</p>
+                <div className="flex gap-3 justify-center">
+                  <Button onClick={resetCompound} variant="outline" className="border-[#00FF41]/40 text-[#00FF41] hover:bg-[#00FF41]/10 rounded-none font-mono">
+                    <RefreshCw className="w-4 h-4 mr-1" /> Tekrar
+                  </Button>
+                  <Button onClick={() => finishGame(clickXP + 50, 30)}
+                    className="bg-[#00FF41] text-black hover:bg-[#00CC33] font-bold font-mono rounded-none px-6">
+                    <Sparkles className="w-4 h-4 mr-2" />AL (+30 🪙)
+                  </Button>
+                </div>
+              </MatrixCard>
+            </motion.div>
           )}
         </div>
       </div>
     );
   }
+
+  /* ══════════════ GAME SELECTION SCREEN ══════════════ */
+  const games = [
+    {
+      id: 'budget' as GameId,
+      icon: '🎯',
+      title: 'BÜTÇE BLASTER',
+      desc: 'Harcama kalemlerini hızla sınıflandır! Gereksizi kes, zorunlu ve birikimi koru.',
+      xpReward: '10-100 XP',
+      difficulty: '★★☆',
+      color: 'red',
+    },
+    {
+      id: 'memory' as GameId,
+      icon: '🧠',
+      title: 'MATRİX HAFIZA',
+      desc: 'Finansal kavramları eşleştir! Ne kadar az hamlede çözersen o kadar çok puan.',
+      xpReward: '50-100 XP',
+      difficulty: '★★★',
+      color: 'blue',
+    },
+    {
+      id: 'compound' as GameId,
+      icon: '📈',
+      title: 'BİLEŞİK FAİZ',
+      desc: 'Paranı yıl yıl büyüt! Faiz oranını artır, hedefe ulaş ve bileşik gücü keşfet.',
+      xpReward: '50+ XP',
+      difficulty: '★☆☆',
+      color: 'green',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800 p-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <Button variant="ghost" onClick={() => setCurrentView('profile')} className="text-white">
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Profile Dön
-          </Button>
-          <h1 className="text-3xl font-bold text-white">Mini Oyunlar</h1>
-          <div className="w-20" />
+    <div className="min-h-screen bg-[#0D0208] relative overflow-hidden p-4">
+      <div className="absolute inset-0 opacity-5 pointer-events-none" style={{ backgroundImage: `linear-gradient(rgba(0,255,65,0.15) 1px, transparent 1px),linear-gradient(90deg,rgba(0,255,65,0.15) 1px,transparent 1px)`, backgroundSize: '40px 40px' }} />
+
+      <div className="relative z-10 max-w-2xl mx-auto">
+        <div className="text-center mb-8 pt-2">
+          <h1 className="text-3xl font-bold text-[#00FF41] matrix-glow font-mono tracking-widest mb-1">MİNİ OYUNLAR</h1>
+          <p className="text-gray-600 font-mono text-sm">// Oynayarak finansal becerilerini geliştir</p>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Card 
-              className="bg-white/10 backdrop-blur border-white/20 cursor-pointer h-full"
-              onClick={() => setSelectedGame('attention')}
+        <div className="space-y-4">
+          {games.map((game, i) => (
+            <motion.div
+              key={game.id}
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              whileHover={{ x: 4 }}
             >
-              <CardContent className="p-8">
-                <div className="text-center">
-                  <Coffee className="w-16 h-16 text-amber-400 mx-auto mb-4" />
-                  <h2 className="text-2xl font-bold text-white mb-2">Dikkat Avcısı</h2>
-                  <p className="text-gray-300 mb-4">
-                    Kafede otururken etrafındaki dikkat dağıtıcılara karşı mücadele et!
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-yellow-400">
-                    <Gamepad2 className="w-5 h-5" />
-                    <span>Oyna</span>
+              <MatrixCard className="p-5 cursor-pointer hover:shadow-[0_0_20px_rgba(0,255,65,0.15)] transition-all" onClick={() => setSelectedGame(game.id)}>
+                <div className="flex items-center gap-4">
+                  <div className="text-4xl flex-shrink-0">{game.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <h2 className="text-base font-bold text-[#00FF41] font-mono">{game.title}</h2>
+                      <div className="flex items-center gap-3 text-xs font-mono">
+                        <span className="text-yellow-400">{game.xpReward}</span>
+                        <span className="text-[#00FF41]/50">{game.difficulty}</span>
+                      </div>
+                    </div>
+                    <p className="text-gray-500 text-sm font-mono line-clamp-2">{game.desc}</p>
+                  </div>
+                  <div className="border border-[#00FF41]/30 p-2 ml-2 text-[#00FF41] hover:bg-[#00FF41]/10 transition-all">
+                    <TrendingUp className="w-4 h-4" />
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+              </MatrixCard>
+            </motion.div>
+          ))}
+        </div>
 
-          <motion.div
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <Card 
-              className="bg-white/10 backdrop-blur border-white/20 cursor-pointer h-full"
-              onClick={() => setSelectedGame('decision')}
-            >
-              <CardContent className="p-8">
-                <div className="text-center">
-                  <div className="flex justify-center gap-4 mb-4">
-                    <ArrowLeft className="w-8 h-8 text-red-400" />
-                    <ArrowRight className="w-8 h-8 text-green-400" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-white mb-2">Karar Ver!</h2>
-                  <p className="text-gray-300 mb-4">
-                    Hızla gelen fırsatları değerlendir. Kötüyü reddet, iyiyi kabul et!
-                  </p>
-                  <div className="flex items-center justify-center gap-2 text-yellow-400">
-                    <Gamepad2 className="w-5 h-5" />
-                    <span>Oyna</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </motion.div>
+        {/* Stats bar */}
+        <div className="mt-6 grid grid-cols-3 gap-3">
+          {[
+            { icon: '⭐', label: 'Toplam XP', value: user.xp },
+            { icon: '🪙', label: 'Coinler', value: user.coins },
+            { icon: '🏆', label: 'Rozetler', value: user.badges.length },
+          ].map(stat => (
+            <div key={stat.label} className="bg-[#001400] border border-[#00FF41]/20 p-3 text-center font-mono">
+              <p className="text-base">{stat.icon}</p>
+              <p className="text-[#00FF41] font-bold text-sm">{stat.value}</p>
+              <p className="text-gray-600 text-[9px]">{stat.label}</p>
+            </div>
+          ))}
         </div>
       </div>
     </div>
